@@ -1,6 +1,356 @@
 <!DOCTYPE html>
 <html>
-<head th:replace="layout::head">
+
+<head>
+    <title>Departamento</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.3.7/css/bootstrap.min.css"
+        rel="stylesheet" />
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+        }
+
+        .tree ul {
+            padding-top: 20px;
+            position: relative;
+            transition: all 0.5s;
+            -webkit-transition: all 0.5s;
+            -moz-transition: all 0.5s;
+            padding-left: 0 !important;
+        }
+
+        .tree li {
+            float: left;
+            text-align: center;
+            list-style-type: none;
+            position: relative;
+            padding: 20px 5px 0 5px;
+            transition: all 0.5s;
+            -webkit-transition: all 0.5s;
+            -moz-transition: all 0.5s;
+        }
+
+        /*Usaré ::before y ::after para dibujar los conectores*/
+        .tree li::before,
+        .tree li::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            right: 50%;
+            border-top: 1px solid #ccc;
+            width: 50%;
+            height: 20px;
+        }
+
+        .tree li::after {
+            right: auto;
+            left: 50%;
+            border-left: 1px solid #ccc;
+        }
+
+        /*Necesito eliminar los conectores derecho-izquierdo de los elemnetos sin ningún sibling*/
+        .tree li:only-child::after,
+        .tree li:only-child::before {
+            display: none;
+        }
+
+        /*Borro el espacio de arriba de los children únicos*/
+        .tree li:only-child {
+            padding-top: 0;
+        }
+
+        /*Borro el conector izquierdo del primer child y el derecho del último child*/
+        .tree li:first-child::before,
+        .tree li:last-child::after {
+            border: 0 none;
+        }
+
+        /*Añado al final el conector vertical para los últimos nodos*/
+        .tree li:last-child::before {
+            border-right: 1px solid #ccc;
+            border-radius: 0 5px 0 0;
+            -webkit-border-radius: 0 5px 0 0;
+            -moz-border-radius: 0 5px 0 0;
+        }
+
+        .tree li:first-child::after {
+            border-radius: 5px 0 0 0;
+            -webkit-border-radius: 5px 0 0 0;
+            -moz-border-radius: 5px 0 0 0;
+        }
+
+        /*Agrego conectores debajo de los parents*/
+        .tree ul ul::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 50%;
+            border-left: 1px solid #ccc;
+            width: 0;
+            height: 20px;
+        }
+
+        .tree li a {
+            max-width: 150px;
+            border: 1px solid #ccc;
+            padding: 2px 0px;
+            background: #FFD8B8;
+            text-decoration: none;
+            color: #666;
+            font-family: arial, verdana, tahoma;
+            display: inline-block;
+            border-radius: 5px;
+            -webkit-border-radius: 5px;
+            -moz-border-radius: 5px;
+            transition: all 0.5s;
+            -webkit-transition: all 0.5s;
+            -moz-transition: all 0.5s;
+        }
+
+        /*Efectos flotantes*/
+        /*Aplico el efecto flotante al descendientes del elemento también.*/
+        .tree li a:hover,
+        .tree li a:hover+ul li a {
+            background: #FF9B48;
+            color: #000;
+            border: 1px solid #94a0b4;
+        }
+
+        /*Estilos de conector para los flotantes*/
+        .tree li a:hover+ul li::after,
+        .tree li a:hover+ul li::before,
+        .tree li a:hover+ul::before,
+        .tree li a:hover+ul ul::before {
+            border-color: #94a0b4;
+        }
+    </style>
 </head>
-<body th:replace="template_login::contenido"></body>
+
+<body>
+    <nav class="navbar bg-primary mb-0">
+        <div class="container-fluid">
+            <div class="row">
+                <div class="col text-white">
+                    <h4>Organigrama Empresarial</h4>
+                </div>
+            </div>
+        </div>
+    </nav>
+    <div class="row mb-2">
+        <div class="card bg-light col-md-12">
+            <div class="card-body" style="padding:5p 15px">
+                <a class="btn btn-sm btn-outline-success" href="/OrganigramaPED/">Empleado</a>
+                <a class="btn btn-sm btn-success" href="/OrganigramaPED/Departamentos">Departamento</a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-12">
+        <div class="row">
+            <div class="col-md-3">                
+                <div class="card text-bg-light">
+                    <div class="card-header">
+                        <h5>Registro de Departamentos</h5>
+                    </div>
+                    <div class="card-body">
+                        <form id="frm_departamento">
+                            <div class="form-group">
+                                <label>Departamento</label>
+                                <input id="ipt_departamento" type="text" name="departamento" class="form-control" />
+                            </div>
+                            <div class="form-group">
+                                <label>Departamento Superior</label>
+                                <select id="slt_departamentos" name="depto_jefe" class="form-control slt_validate">
+                                </select>
+                                <div id="validate_depto_jefe" class="invalid-feedback">
+
+                                </div>
+                            </div>
+                            <div>
+                                <button id="btn_guardar" class="btn btn-warning w-100" type="button">Guardar Departamento</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-9">
+                <div id="tree" class="tree"></div>
+            </div>
+        </div>
+    </div>
+    <footer>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+        <script
+            src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-treeview/1.2.0/bootstrap-treeview.min.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-validate/1.19.5/jquery.validate.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    </footer>
+    <script th:inline="javascript">
+        /*<![CDATA[*/
+
+        $(document).ready(function () {
+            datosArbolDepartamento()
+        });
+
+        $("#btn_guardar").click(function(){
+            if($("#frm_departamento").valid()){
+                $.ajax({
+                    beforeSend: function(){
+                        Swal.fire({
+                            title: "Guardando...",
+                            allowOutsideClick: false,
+                            beforeOpen: () => {
+                                Swal.showLoading()
+                            }
+                        });
+                    },
+                    url: "/OrganigramaPED/transaction/save_departamento",
+                    method:"POST",
+                    data: {
+                        departamento: $("#ipt_departamento").val(),
+                        deptoJefe: $("#slt_departamentos").val(),                        
+                    }
+                }).done(function(data){
+                    if(data.code==0){
+                        Swal.fire({
+                            title: data.msg,
+                            icon: "success"
+                        });
+                        $("#tree").html("");
+                        datosArbolDepartamento();
+                    }
+                })
+            }
+        });
+
+        $('#slt_departamentos').select2({
+            ajax: {
+                url: '/OrganigramaPED/fetch-data/get_lista_departamentos',
+                type: "POST",
+                processResults: function (data) {
+                    console.log(data)
+                    return {
+                        results: $.map(data, function (obj) {
+                            return { id: obj.id, text: obj.codigo+"-"+ obj.departamento};
+                        })
+                    };
+                }
+            }
+        });
+
+        $(".slt_validate").change(function(){
+            var name = $(this).attr("name");
+            $(this).removeClass("is-invalid");
+            $("#validate_"+name).removeClass("d-block");
+        })
+
+        function datosArbolDepartamento() {
+            $.ajax({
+                url: "/OrganigramaPED/fetch-data/get_arbol_departamentos",
+                method: "POST",
+                contentType: "application/json; charset=utf-8"
+            }).done(function (data) {
+                console.log(data);
+                generarArbol(data);
+            })
+        }
+
+        function generarArbol(raiz) {
+
+            const arbol = document.getElementById('tree');
+            const ul = document.createElement('ul');
+            const li = document.createElement('li');
+            const a = document.createElement('a');
+            $(a).append(`
+                    <div class="row">
+                        <div class="col-md-12 text-danger">${raiz.departamento.departamento}</div>
+                        <div class="col-md-4">Codigo</div>
+                        <div class="col-md-8">${raiz.departamento.codigo}</div>
+                    </div>`);
+
+            li.appendChild(a)
+
+            if (raiz.subordinados && raiz.subordinados.length > 0) {
+                const ulHijos = document.createElement('ul');
+                raiz.subordinados.forEach(function (hijo) {
+                    const hijoA = document.createElement('a');
+                    const hijoLi = document.createElement('li');
+                    $(hijoA).append(`
+                    <div class="row">
+                        <div class="col-md-12 text-danger">${hijo.departamento.departamento}</div>
+                        <div class="col-md-4">Codigo</div>
+                        <div class="col-md-8">${hijo.departamento.codigo}</div>
+                    </div>`);
+                    hijoLi.appendChild(hijoA);
+                    ulHijos.appendChild(hijoLi);
+                    generarArbolRecursivo(hijo, hijoLi); // Llamada recursiva para generar los hijos de este nodo
+                });
+                li.appendChild(ulHijos);
+            }
+
+            ul.appendChild(li);
+            arbol.appendChild(ul);
+        }
+
+        function generarArbolRecursivo(nodo, elementoPadre) {
+            if (nodo.subordinados && nodo.subordinados.length > 0) {
+                const ulHijos = document.createElement('ul');
+                nodo.subordinados.forEach(function (hijo) {
+                    const hijoA = document.createElement('a');
+                    const hijoLi = document.createElement('li');
+                    $(hijoA).append(`
+                    <div class="row">
+                        <div class="col-md-12 text-danger">${hijo.departamento.departamento}</div>
+                        <div class="col-md-4">Codigo</div>
+                        <div class="col-md-8">${hijo.departamento.codigo}</div>
+                    </div>`);
+                    hijoLi.appendChild(hijoA);
+                    ulHijos.appendChild(hijoLi);
+                    generarArbolRecursivo(hijo, hijoLi); // Llamada recursiva para generar los hijos de este nodo
+                });
+                elementoPadre.appendChild(ulHijos);
+            }
+        }
+
+        $.validator.setDefaults({
+            errorElement: 'label',
+            errorClass: 'invalid-feedback',
+            validClass: 'success',
+            errorPlacement:function(error, element){
+                var errorSelector = "#validate_"+$(element).attr("name");
+                var $element = $(errorSelector);
+
+                if($element.html() != null){
+                    $element.html(error.html());
+                    $element.addClass("d-block")
+                }else{
+                    error.insertAfter(element);
+                }
+            },
+            highlight: function(element, errorClass){
+                $(element).addClass("is-invalid");
+                $(element).removeClass(errorClass);
+            },
+            unhighlight: function (element, errorClass, validClass){
+                $(element).removeClass("is-invalid");
+                $(element).removeClass(errorClass)
+            }
+        })
+
+        $("#frm_empleado").validate({
+            rules:{
+                depto_jefe: {required:true},
+            },
+            messages:{
+                depto_jefe: {required:"Campo requerido"},
+            }
+        })
+        /*]]>*/
+    </script>
+</body>
+
 </html>
